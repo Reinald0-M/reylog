@@ -95,7 +95,7 @@ def test_loguru_style_format_arguments(capsys: pytest.CaptureFixture[str]) -> No
     assert "Testing mixture A" in output
 
 
-def test_location_points_to_caller(capsys: pytest.CaptureFixture[str]) -> None:
+def test_location_points_to_plain_function(capsys: pytest.CaptureFixture[str]) -> None:
     logger.configure(
         level="DEBUG",
         colorize=False,
@@ -106,5 +106,45 @@ def test_location_points_to_caller(capsys: pytest.CaptureFixture[str]) -> None:
     logger.info("location check")
 
     output = capsys.readouterr().err
-    assert "test_logger:test_location_points_to_caller" in output
+    assert "test_location_points_to_plain_function:" in output
     assert "reylog.logger" not in output
+
+
+def test_location_includes_class_name(capsys: pytest.CaptureFixture[str]) -> None:
+    logger.configure(
+        level="DEBUG",
+        colorize=False,
+        show_time=False,
+        show_location=True,
+    )
+
+    class TestClass:
+        def init():
+            logger.info("class location check")
+
+    TestClass.init()
+
+    output = capsys.readouterr().err
+    assert "TestClass.init:" in output
+    assert "class location check" in output
+
+
+def test_location_includes_instance_method_class(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    logger.configure(
+        level="DEBUG",
+        colorize=False,
+        show_time=False,
+        show_location=True,
+    )
+
+    class Trainer:
+        def fit(self) -> None:
+            logger.info("training")
+
+    Trainer().fit()
+
+    output = capsys.readouterr().err
+    assert "Trainer.fit:" in output
+    assert "training" in output
