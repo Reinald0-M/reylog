@@ -32,7 +32,8 @@ def console_format(*, show_time: bool, show_location: bool) -> str:
     show_time:
         Include a compact ``HH:mm:ss`` timestamp.
     show_location:
-        Include ``module:function:line`` source information.
+        Include a qualified callable location such as ``Trainer.fit:42`` or
+        ``load_data:18``.
 
     Returns
     -------
@@ -48,7 +49,7 @@ def console_format(*, show_time: bool, show_location: bool) -> str:
     parts.append(f"<level>{{level: <{LEVEL_WIDTH}}}</level>")
 
     if show_location:
-        parts.append("<cyan>{module}:{function}:{line}</cyan>")
+        parts.append("<cyan>{extra[reylog_location]}</cyan>")
 
     parts.append("<level>{message}</level>")
     return " | ".join(parts)
