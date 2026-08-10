@@ -27,13 +27,7 @@ from .styles import (
 
 
 def _register_level(name: str, no: int, color: str, icon: str) -> None:
-    """Register a custom Loguru level if it does not already exist.
-
-    Loguru keeps levels globally on its logger singleton. Package reloads and
-    interactive sessions can therefore encounter an already-registered level.
-    In that case, preserving the existing level is safer than raising during
-    import.
-    """
+    """Register a custom Loguru level if it does not already exist."""
 
     try:
         _loguru_logger.level(name)
@@ -41,10 +35,25 @@ def _register_level(name: str, no: int, color: str, icon: str) -> None:
         _loguru_logger.level(name, no=no, color=color, icon=icon)
 
 
+def _remove_loguru_default_sink() -> None:
+    """Remove Loguru's stock handler without touching user-added sinks.
+
+    Loguru's automatically-created stderr handler has identifier ``0``. If it
+    was already removed, ``remove(0)`` raises ``ValueError``; that is harmless
+    and means there is nothing for reylog to replace.
+    """
+
+    try:
+        _loguru_logger.remove(0)
+    except ValueError:
+        pass
+
+
 class ReyLogger:
     """Small, opinionated logging facade backed by Loguru.
 
-    The object is designed to be imported as a singleton:
+    Consumers should normally use the package singleton rather than creating
+    instances directly:
 
     .. code-block:: python
 
@@ -54,11 +63,9 @@ class ReyLogger:
         logger.test("Running benchmark")
         logger.metric("RMSE", 0.031)
 
-    Notes
-    -----
     ``reylog`` manages one console sink. Calling :meth:`configure` replaces
-    only that managed sink, so repeated configuration does not create duplicate
-    console messages.
+    only that managed sink, so repeated configuration does not duplicate its
+    console output.
     """
 
     def __init__(self) -> None:
@@ -75,9 +82,7 @@ class ReyLogger:
             METRIC_LEVEL_ICON,
         )
 
-        # Loguru ships with a default stderr sink. reylog replaces it once so
-        # users get reylog formatting immediately after import.
-        _loguru_logger.remove()
+        _remove_loguru_default_sink()
         self._handler_id: int | None = None
         self.configure()
 
@@ -105,7 +110,12 @@ class ReyLogger:
         """
 
         if self._handler_id is not None:
-            _loguru_logger.remove(self._handler_id)
+            try:
+                _loguru_logger.remove(self._handler_id)
+            except ValueError:
+                # An advanced user may have removed all Loguru sinks manually.
+                # Reconfiguration should recover by installing a fresh sink.
+                pass
 
         self._handler_id = _loguru_logger.add(
             sys.stderr,
