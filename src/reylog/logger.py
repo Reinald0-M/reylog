@@ -83,6 +83,31 @@ def _class_qualname_for_code(owner: type[Any], code: CodeType) -> str | None:
     return None
 
 
+def _class_name_from_visible_namespaces(frame: FrameType, code: CodeType) -> str | None:
+    """Resolve a method's owning class from visible Python 3.10 namespaces.
+
+    A class can be defined at module scope or inside an enclosing function.
+    Walking outward through frame locals and globals covers both cases without
+    requiring ``self`` or ``cls`` to be present in the method signature.
+    """
+
+    current: FrameType | None = frame
+    seen: set[int] = set()
+
+    while current is not None:
+        for namespace in (current.f_locals, current.f_globals):
+            for value in namespace.values():
+                if not isinstance(value, type) or id(value) in seen:
+                    continue
+                seen.add(id(value))
+                resolved = _class_qualname_for_code(value, code)
+                if resolved is not None:
+                    return resolved
+        current = current.f_back
+
+    return None
+
+
 def _qualified_name(frame: FrameType) -> str:
     """Return the most informative callable name available for ``frame``."""
 
@@ -104,12 +129,10 @@ def _qualified_name(frame: FrameType) -> str:
         return f"{cls.__qualname__}.{code.co_name}"
 
     # Handles methods such as ``def init(): ...; TestClass.init()`` where no
-    # ``self`` or ``cls`` variable exists in the frame.
-    for value in frame.f_globals.values():
-        if isinstance(value, type):
-            resolved = _class_qualname_for_code(value, code)
-            if resolved is not None:
-                return resolved
+    # ``self`` or ``cls`` variable exists, including locally defined classes.
+    resolved = _class_name_from_visible_namespaces(frame, code)
+    if resolved is not None:
+        return resolved
 
     return code.co_name
 
