@@ -2,17 +2,20 @@ from __future__ import annotations
 
 import pytest
 
-from reylog import ReyLogger
+from reylog import logger
 
 
-def make_logger() -> ReyLogger:
-    logger = ReyLogger()
-    logger.configure(colorize=False, show_time=False, show_location=False)
-    return logger
+def reset_console(*, level: str = "DEBUG") -> None:
+    logger.configure(
+        level=level,
+        colorize=False,
+        show_time=False,
+        show_location=False,
+    )
 
 
 def test_standard_levels_emit(capsys: pytest.CaptureFixture[str]) -> None:
-    logger = make_logger()
+    reset_console()
 
     logger.debug("debug message")
     logger.info("info message")
@@ -29,7 +32,7 @@ def test_standard_levels_emit(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_custom_levels_emit(capsys: pytest.CaptureFixture[str]) -> None:
-    logger = make_logger()
+    reset_console()
 
     logger.test("benchmark")
     logger.metric("RMSE", 0.0317)
@@ -42,7 +45,7 @@ def test_custom_levels_emit(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_metric_precision(capsys: pytest.CaptureFixture[str]) -> None:
-    logger = make_logger()
+    reset_console()
 
     logger.metric("MCC", 0.92341, precision=3)
 
@@ -51,20 +54,14 @@ def test_metric_precision(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_metric_rejects_negative_precision() -> None:
-    logger = make_logger()
+    reset_console()
 
     with pytest.raises(ValueError, match="precision must be non-negative"):
         logger.metric("RMSE", 1.0, precision=-1)
 
 
 def test_level_filtering(capsys: pytest.CaptureFixture[str]) -> None:
-    logger = make_logger()
-    logger.configure(
-        level="WARNING",
-        colorize=False,
-        show_time=False,
-        show_location=False,
-    )
+    reset_console(level="WARNING")
 
     logger.info("hidden")
     logger.warning("visible")
@@ -77,9 +74,9 @@ def test_level_filtering(capsys: pytest.CaptureFixture[str]) -> None:
 def test_reconfigure_does_not_duplicate_messages(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    logger = make_logger()
-    logger.configure(colorize=False, show_time=False, show_location=False)
-    logger.configure(colorize=False, show_time=False, show_location=False)
+    reset_console()
+    reset_console()
+    reset_console()
 
     logger.info("exactly once")
 
@@ -88,7 +85,7 @@ def test_reconfigure_does_not_duplicate_messages(
 
 
 def test_loguru_style_format_arguments(capsys: pytest.CaptureFixture[str]) -> None:
-    logger = make_logger()
+    reset_console()
 
     logger.info("Loaded {} samples", 53)
     logger.test("Testing {}", "mixture A")
@@ -96,3 +93,18 @@ def test_loguru_style_format_arguments(capsys: pytest.CaptureFixture[str]) -> No
     output = capsys.readouterr().err
     assert "Loaded 53 samples" in output
     assert "Testing mixture A" in output
+
+
+def test_location_points_to_caller(capsys: pytest.CaptureFixture[str]) -> None:
+    logger.configure(
+        level="DEBUG",
+        colorize=False,
+        show_time=False,
+        show_location=True,
+    )
+
+    logger.info("location check")
+
+    output = capsys.readouterr().err
+    assert "test_logger:test_location_points_to_caller" in output
+    assert "reylog.logger" not in output
