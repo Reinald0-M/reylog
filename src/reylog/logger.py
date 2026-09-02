@@ -156,6 +156,7 @@ class ReyLogger:
         logger.info("Loading data")
         logger.test("Running benchmark")
         logger.metric("RMSE", 0.031)
+        logger.metrics(epoch=10, rmse=(0.031, 3), kl_loss=(0.0042, 4))
 
     ``reylog`` manages one console sink. Calling :meth:`configure` replaces
     only that managed sink, so repeated configuration does not duplicate its
@@ -312,6 +313,55 @@ class ReyLogger:
             "{}: {}",
             name,
             rendered,
+        )
+
+    def metrics(self, **metrics: Any) -> None:
+        """Emit multiple named results in one compact ``METRIC`` record.
+
+        Keyword names are converted from ``snake_case`` to display names. A
+        scalar value is rendered with ``str(value)``. Pass ``(value,
+        precision)`` to request a fixed number of decimal places; if numeric
+        formatting is unsupported, reylog falls back to ``str(value)``.
+
+        Examples
+        --------
+        .. code-block:: python
+
+            logger.metrics(
+                epoch=10,
+                beta=(0.1, 2),
+                total_loss=(0.002341, 6),
+                kl_loss=(0.000203, 6),
+            )
+        """
+
+        fields: list[str] = []
+
+        for name, value in metrics.items():
+            rendered = str(value)
+            if (
+                isinstance(value, tuple)
+                and len(value) == 2
+                and isinstance(value[1], int)
+            ):
+                metric_value, precision = value
+                if precision < 0:
+                    raise ValueError("precision must be non-negative")
+                try:
+                    rendered = f"{metric_value:.{precision}f}"
+                except (TypeError, ValueError):
+                    rendered = str(metric_value)
+
+            display_name = " ".join(
+                word.upper() if word.lower() == "kl" else word.title()
+                for word in name.split("_")
+            )
+            fields.append(f"{display_name}: {rendered}")
+
+        self._caller_logger().opt(depth=1).log(
+            METRIC_LEVEL_NAME,
+            "{}",
+            " | ".join(fields),
         )
 
 

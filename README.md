@@ -10,7 +10,7 @@ The goal is deliberately narrow: stop copying logger setup between projects with
 - Colored terminal output
 - Standard helpers: `debug`, `info`, `success`, `warning`, `error`
 - `test()` for validation, benchmark, and experiment stages
-- `metric()` for named numerical results
+- `metric()` for individual named results and `metrics()` for compact batches
 - Configurable minimum level, timestamps, source locations, and colors
 - Loguru-style `{}` message formatting
 - Source locations report the caller rather than the wrapper internals
@@ -48,6 +48,7 @@ from reylog import logger
 logger.info("Loading spectra")
 logger.test("Running synthetic-mixture benchmark")
 logger.metric("NRMSE", 0.0241)
+logger.metrics(epoch=10, beta=(0.1, 2), total_loss=(0.002341, 6))
 logger.success("Experiment complete")
 logger.warning("Calibration file not found; using defaults")
 logger.error("Optimization failed")
@@ -59,6 +60,7 @@ Typical output:
 14:23:41 | INFO     | Loading spectra
 14:23:41 | TEST     | Running synthetic-mixture benchmark
 14:23:41 | METRIC   | NRMSE: 0.0241
+14:23:41 | METRIC   | Epoch: 10 | Beta: 0.10 | Total Loss: 0.002341
 14:23:41 | SUCCESS  | Experiment complete
 14:23:41 | WARNING  | Calibration file not found; using defaults
 14:23:41 | ERROR    | Optimization failed
@@ -113,6 +115,32 @@ METRIC   | MCC: 0.923
 `METRIC` uses numeric value `26`. Loguru already reserves `25` for `SUCCESS`, so `26` avoids a collision while keeping metrics near ordinary informational/success output.
 
 `precision` must be non-negative. If omitted, `str(value)` is used.
+
+Use `metrics()` to emit several values in a single compact log record. Keyword
+names are displayed with underscores replaced by spaces and words title-cased;
+common acronyms such as `kl` remain uppercase:
+
+```python
+logger.metrics(
+    epoch=epoch + 1,
+    beta=(beta, 2),
+    total_loss=(epoch_total, 6),
+    token_loss=(epoch_token, 6),
+    presence_loss=(epoch_presence, 6),
+    kl_loss=(epoch_kl, 6),
+)
+```
+
+Output:
+
+```text
+METRIC   | Epoch: 10 | Beta: 0.10 | Total Loss: 0.002341 | Token Loss: 0.001927 | Presence Loss: 0.000211 | KL Loss: 0.000203
+```
+
+A scalar uses `str(value)`. A `(value, precision)` tuple requests fixed-point
+formatting with that many decimal places. If the value cannot be formatted that
+way, `metrics()` falls back to `str(value)`. As with `metric()`, precision must
+be a non-negative integer.
 
 ## Configuration
 

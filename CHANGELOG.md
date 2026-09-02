@@ -4,6 +4,13 @@ All notable changes to `reylog` are documented here.
 
 The project follows semantic versioning.
 
+## Unreleased
+
+### Added
+
+- Add `logger.metrics(...)` for compact single-record logging of multiple
+  metrics, including per-value precision and readable keyword display names.
+
 ## 0.1.0 - 2026-08-10
 
 ### Added

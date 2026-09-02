@@ -60,6 +60,81 @@ def test_metric_rejects_negative_precision() -> None:
         logger.metric("RMSE", 1.0, precision=-1)
 
 
+def test_metrics_uses_default_string_formatting(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    reset_console()
+
+    logger.metrics(epoch=10, status="steady")
+
+    output = capsys.readouterr().err
+    assert "Epoch: 10 | Status: steady" in output
+
+
+def test_metrics_formats_tuple_precision_and_prettifies_names(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    reset_console()
+
+    logger.metrics(
+        beta=(0.1, 2),
+        total_loss=(0.0023412, 6),
+        kl_loss=(0.000203, 6),
+    )
+
+    output = capsys.readouterr().err
+    assert "Beta: 0.10" in output
+    assert "Total Loss: 0.002341" in output
+    assert "KL Loss: 0.000203" in output
+
+
+def test_metrics_emits_one_log_record(capsys: pytest.CaptureFixture[str]) -> None:
+    reset_console()
+
+    logger.metrics(epoch=10, beta=(0.1, 2), total_loss=(0.002341, 6))
+
+    output = capsys.readouterr().err
+    assert output.count("METRIC") == 1
+    assert len(output.splitlines()) == 1
+    assert "Epoch: 10 | Beta: 0.10 | Total Loss: 0.002341" in output
+
+
+def test_metrics_precision_falls_back_to_string(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    reset_console()
+
+    logger.metrics(status=("steady", 2))
+
+    output = capsys.readouterr().err
+    assert "Status: steady" in output
+
+
+def test_metrics_rejects_negative_precision() -> None:
+    reset_console()
+
+    with pytest.raises(ValueError, match="precision must be non-negative"):
+        logger.metrics(loss=(1.0, -1))
+
+
+def test_metrics_location_points_to_caller(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    logger.configure(
+        level="DEBUG",
+        colorize=False,
+        show_time=False,
+        show_location=True,
+    )
+
+    logger.metrics(epoch=10, kl_loss=(0.000203, 6))
+
+    output = capsys.readouterr().err
+    assert "test_metrics_location_points_to_caller:" in output
+    assert "reylog.logger" not in output
+    assert "Epoch: 10 | KL Loss: 0.000203" in output
+
+
 def test_level_filtering(capsys: pytest.CaptureFixture[str]) -> None:
     reset_console(level="WARNING")
 
